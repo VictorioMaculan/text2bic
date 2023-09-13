@@ -1,7 +1,6 @@
 import numpy as np
 from PIL import Image
 from os.path import isfile
-from math import ceil
 
 import typing as tp
 from io import TextIOWrapper
@@ -24,7 +23,7 @@ def string2bic(string_or_file: str | TextIOWrapper,
     '''
     
     if (row_length * col_length) % 8 != 0:
-        raise ValueError('The BIC total size must be divisible by 8.')
+        raise ValueError('The BIC total size must be divisible by eight')
     
     if isinstance(string_or_file, TextIOWrapper):
         string_or_file = string_or_file.read()
@@ -34,11 +33,11 @@ def string2bic(string_or_file: str | TextIOWrapper,
     
     bits = _string2bits(string_or_file)
     
-    # * Creating a array for each image
-    images_arrays = np.array_split(bits, ceil(bits.size / (row_length * col_length)))
-
+    # * Creating each image
     images = list()
-    for img_array in images_arrays:
+    for bytes in range(0, len(bits), (row_length * col_length)):
+        img_array = bits[bytes:bytes + (row_length * col_length)]
+        
         complement = np.zeros(row_length * col_length - img_array.size, dtype=np.uint8)
 
         full_array = np.concatenate((img_array, complement), dtype=np.uint8)
@@ -50,7 +49,8 @@ def string2bic(string_or_file: str | TextIOWrapper,
     return images if len(images) != 1 else images[0]
 
     
-def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]):
+def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]
+               ) -> str:
     '''
     Converts one or more BIC (Binary Image Code) into a string.
     
@@ -60,6 +60,7 @@ def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]):
     Return:
         str: A string with the content of the BIC's.
     '''
+    
     # It's getting converted into a tuple so it can be
     # iterated afterwards.
     if isinstance(image, str):
@@ -70,7 +71,7 @@ def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]):
     splited_text = list()
     for img in image:
         binary = np.asarray(img).flatten()
-        binary //= 255
+        binary //= 255 # * Converting the white pixels (255) to 1
         binary = ''.join([str(x) for x in binary])
         splited_text.append(_binary2utf8(binary))
     
@@ -79,9 +80,12 @@ def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]):
     
 def _string2bits(string: str):
     '''Create a flat np.ndarray with each bit separated'''
-    # TODO: Convert the character in more than one byte (If needed) to use utf-8 
-    binary_full = ''.join(format(ord(x), '08b') for x in string)
-
+    
+    bytes_ = bytes(string, 'utf-8')
+    bytes_ = [int(b, 16) for b in bytes_.hex(' ').split()]
+    
+    binary_full = ''.join([format(h, '08b') for h in bytes_])
+    
     bits = np.array(list(binary_full), dtype=np.uint)
     bits *= 255
     return bits
@@ -90,17 +94,19 @@ def _string2bits(string: str):
 def _binary2utf8(binary: str):
     '''Translate a binary string into text with encoding utf-8'''
     binary = binary.replace(' ', '')
-    
-    byte_string = bytearray()
+
+    bytes_ = bytearray()
     for i in range(0, len(binary), 8):
-        byte = int(binary[i:i+8], 2)
-        byte_string.append(byte)
-    return byte_string.decode('utf-8')
+        
+        byte = int(binary[i:i + 8], 2)
+        
+        if byte != 0: # * Removing the U+0000 characters after the text
+            bytes_.append(byte)
     
+    return bytes_.decode('utf-8', errors='replace')
 
 
 if __name__ == '__main__':
-    test = string2bic(string_or_file='Hello, world!')
-    test.show()
-    print(bic2string(test))
+    test = string2bic(string_or_file='scr/utf_testing_file.txt')
+    print(len(bic2string(test)))
     
