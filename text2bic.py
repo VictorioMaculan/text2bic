@@ -23,7 +23,7 @@ def string2bic(string_or_file: str | TextIOWrapper,
         list[PIL.Image.Image]: A list of Pillow images instances.
     '''
     
-    if row_length * col_length % 8 != 0:
+    if (row_length * col_length) % 8 != 0:
         raise ValueError('The BIC total size must be divisible by 8.')
     
     if isinstance(string_or_file, TextIOWrapper):
@@ -32,21 +32,22 @@ def string2bic(string_or_file: str | TextIOWrapper,
         with open(string_or_file, 'r', encoding='utf-8') as file:
             string_or_file = file.read()
     
+    bits = _string2bits(string_or_file)
+    
+    # * Creating a array for each image
+    images_arrays = np.array_split(bits, ceil(bits.size / (row_length * col_length)))
 
-    binaries = _string2binary(string_or_file)
-    binaries = np.hsplit(binaries, ceil(binaries.size / (row_length * col_length))) # !
+    images = list()
+    for img_array in images_arrays:
+        complement = np.zeros(row_length * col_length - img_array.size, dtype=np.uint8)
 
-    output_bin = list()
-    for binary in binaries:
-        complement = np.zeros(row_length * col_length - binary.size, dtype=np.uint8)
-
-        full_array = np.concatenate((binary, complement), dtype=np.uint8)
+        full_array = np.concatenate((img_array, complement), dtype=np.uint8)
         full_array = full_array.reshape(row_length, col_length)
         
         image = Image.fromarray(full_array, mode='L')
-        output_bin.append(image)
+        images.append(image)
     
-    return output_bin if len(output_bin) != 1 else output_bin[0]
+    return images if len(images) != 1 else images[0]
 
     
 def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]):
@@ -71,33 +72,35 @@ def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]):
         binary = np.asarray(img).flatten()
         binary //= 255
         binary = ''.join([str(x) for x in binary])
-        splited_text.append(_binary2string(binary))
+        splited_text.append(_binary2utf8(binary))
     
     return ''.join(splited_text)
     
     
-def _string2binary(string: str):
+def _string2bits(string: str):
+    '''Create a flat np.ndarray with each bit separated'''
+    # TODO: Convert the character in more than one byte (If needed) to use utf-8 
     binary_full = ''.join(format(ord(x), '08b') for x in string)
 
-    final_binary = np.array(list(binary_full), dtype=np.uint)
-    final_binary *= 255
-    return final_binary
+    bits = np.array(list(binary_full), dtype=np.uint)
+    bits *= 255
+    return bits
 
 
-def _binary2string(binary: str):
+def _binary2utf8(binary: str):
+    '''Translate a binary string into text with encoding utf-8'''
     binary = binary.replace(' ', '')
     
-    # Getting sets of 8 binary digits (That's equivalent to one decimal number)
-    # and translating them to the decimal base to be used in the chr() function.
-    decimal = list()
+    byte_string = bytearray()
     for i in range(0, len(binary), 8):
-        set = int(binary[i:i + 8], 2)
-        decimal.append(set)
-
-    return ''.join([chr(x) for x in decimal])
+        byte = int(binary[i:i+8], 2)
+        byte_string.append(byte)
+    return byte_string.decode('utf-8')
+    
 
 
 if __name__ == '__main__':
-    test = string2bic(string_or_file='Hello world!')
+    test = string2bic(string_or_file='Hello, world!')
     test.show()
     print(bic2string(test))
+    
