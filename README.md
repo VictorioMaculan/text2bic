@@ -1,2 +1,2 @@
 # text2bic
- A simple program that converts text into BIC (Binary Image Code)
+ A simple program that converts text into a BIC (Binary Image Code).

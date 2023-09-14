@@ -49,14 +49,14 @@ def string2bic(string_or_file: str | TextIOWrapper,
     return images if len(images) != 1 else images[0]
 
     
-def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]
+def bic2string(image: Image.Image | str | tp.Iterable[Image.Image]
                ) -> str:
     '''
     Converts one or more BIC (Binary Image Code) into a string.
     
     Params:
         image: A Pillow image instance, a path pointing at a image file
-        or a sequence of Pillow images instances.
+        or a iterable of Pillow images instances.
     Return:
         str: A string with the content of the BIC's.
     '''
@@ -71,7 +71,7 @@ def bic2string(image: Image.Image | str | tp.Sequence[Image.Image]
     splited_text = list()
     for img in image:
         binary = np.asarray(img).flatten()
-        binary //= 255 # * Converting the white pixels (255) to 1
+        binary //= 255 # * Converting the white pixels (255) to 1.
         binary = ''.join([str(x) for x in binary])
         splited_text.append(_binary2utf8(binary))
     
@@ -100,9 +100,10 @@ def _binary2utf8(binary: str):
         
         byte = int(binary[i:i + 8], 2)
         
-        if byte != 0: # * Removing the U+0000 characters after the text
+        if byte != 0: # * Removing the U+0000 characters after the text.
             bytes_.append(byte)
     
+    # * It it's not able to decode a character, it'll be replaced.
     return bytes_.decode('utf-8', errors='replace')
 
 
