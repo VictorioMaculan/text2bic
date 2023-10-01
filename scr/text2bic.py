@@ -109,5 +109,5 @@ def _binary2utf8(binary: str):
 
 if __name__ == '__main__':
     test = string2bic(string_or_file='scr/utf_testing_file.txt')
-    print(len(bic2string(test)))
+    print(bic2string(test))
     
